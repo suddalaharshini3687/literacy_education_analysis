@@ -1,1 +1,2 @@
+Method: For each state/UT, average the 2011 Rural Person and Urban Persons literacy rates, then take the mean across state/UTs, excluding India aggregate.
 Average 2011 literacy rate: 80.06%

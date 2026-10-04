@@ -1,6 +1,6 @@
-Question,Task,Output
-Q1,Average 2011 literacy rate,q1_average_literacy.txt
-Q2,Gender-wise filtering,q2_gender_filtered.csv
-Q3,Missing enrollment values,q3_missing_enrollment.csv
-Q4,Age-group and region grouping,q4_age_region_enrollment.csv
-Q5,Gender-wise literacy comparison,q5_gender_wise_literacy.png
+Question,Output
+Q1,q1_average_literacy.txt
+Q2,q2_gender_filtered.csv
+Q3,q3_missing_enrollment.csv
+Q4,q4_age_region_enrollment.csv
+Q5,q5_gender_wise_literacy.png

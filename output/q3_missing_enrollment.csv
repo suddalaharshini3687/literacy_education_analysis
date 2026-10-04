@@ -1,2 +1,2 @@
-missing_values_before,missing_values_after
-0,0
+numeric_cells_checked,missing_numeric_values,action
+3441,0,No imputation performed; inspect source if missing values exist.
