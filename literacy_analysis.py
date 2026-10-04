@@ -1,349 +1,187 @@
-import pandas as pd
-import matplotlib.pyplot as plt
+
+import re
 from pathlib import Path
 
-# ---------------------------------------------------------
-# File locations
-# ---------------------------------------------------------
+import pandas as pd
+import matplotlib.pyplot as plt
+
 BASE = Path(__file__).resolve().parent
+OUTPUT = BASE / "output"
+OUTPUT.mkdir(exist_ok=True)
 
 literacy_file = BASE / "Table29.6-States(1).xls"
 enrollment_file = BASE / "UDISE_2021_22_Table_5.17_2 (1).csv"
 
-OUTPUT = BASE / "output"
-OUTPUT.mkdir(exist_ok=True)
-
-# ---------------------------------------------------------
 # Read datasets
-# ---------------------------------------------------------
-literacy = pd.read_excel(literacy_file, header=None)
-enrollment = pd.read_csv(enrollment_file, header=None)
+lit_raw = pd.read_excel(literacy_file, header=None)
+enr = pd.read_csv(enrollment_file)
 
-print("Literacy dataset shape:", literacy.shape)
-print("Enrollment dataset shape:", enrollment.shape)
-
-# ---------------------------------------------------------
-# Q1: Average 2011 literacy rate
-# ---------------------------------------------------------
-# The literacy table contains 2011 Rural and Urban Person values.
-# We calculate the average of Rural and Urban Person literacy
-# for each state/UT and then calculate the overall mean.
-
-# Find the row containing the column headings
+# Find literacy header row
 header_row = None
-
-for i in range(min(15, len(literacy))):
-    row_text = " ".join(
-        literacy.iloc[i].astype(str).str.lower().tolist()
-    )
-    if "2011" in row_text and "rural" in row_text:
+for i in range(min(15, len(lit_raw))):
+    row_text = " ".join(lit_raw.iloc[i].astype(str)).lower()
+    if "2011" in row_text and "rural" in row_text and "urban" in row_text:
         header_row = i
         break
 
 if header_row is None:
-    header_row = 4
+    raise ValueError("Could not find the literacy table header row.")
 
-headers = literacy.iloc[header_row].astype(str).tolist()
+lit = lit_raw.iloc[header_row + 1:].copy()
+lit.columns = lit_raw.iloc[header_row].astype(str).str.strip()
+state_col = lit.columns[0]
 
-# Locate useful columns
-rural_col = None
-urban_col = None
+# Keep state/UT rows, excluding India aggregate and blank rows
+names = lit[state_col].astype(str).str.strip()
+lit = lit[
+    names.ne("") &
+    names.str.lower().ne("nan") &
+    ~names.str.lower().str.fullmatch(r"all india|india")
+].copy()
 
-for i, value in enumerate(headers):
-    value_lower = value.lower()
+def find_column(columns, *terms):
+    for col in columns:
+        text = str(col).lower()
+        if all(term.lower() in text for term in terms):
+            return col
+    raise ValueError(f"Could not find a column containing: {terms}")
 
-    if "2011" in value_lower and "rural" in value_lower and "person" in value_lower:
-        rural_col = i
+# Q1: average 2011 literacy rate, averaging rural/urban Person
+rural_person = find_column(lit.columns, "2011", "rural", "person")
+urban_person = find_column(lit.columns, "2011", "urban", "person")
 
-    if "2011" in value_lower and "urban" in value_lower and "person" in value_lower:
-        urban_col = i
+lit[rural_person] = pd.to_numeric(lit[rural_person], errors="coerce")
+lit[urban_person] = pd.to_numeric(lit[urban_person], errors="coerce")
+lit["Average_Rural_Urban"] = lit[[rural_person, urban_person]].mean(axis=1)
+q1_average = lit["Average_Rural_Urban"].mean()
 
-# If exact names are not found, use likely columns from the table.
-if rural_col is None or urban_col is None:
-    print("Could not automatically identify Rural/Urban Person columns.")
-    print("Please inspect the literacy dataset columns.")
-else:
-    rural_values = pd.to_numeric(
-        literacy.iloc[header_row + 1:, rural_col],
-        errors="coerce"
-    )
+(OUTPUT / "q1_average_literacy.txt").write_text(
+    "Method: Average rural and urban Person literacy rates for each state/UT, "
+    "then average across state/UTs, excluding the India aggregate.\n"
+    f"Average 2011 literacy rate: {q1_average:.2f}%\n",
+    encoding="utf-8"
+)
 
-    urban_values = pd.to_numeric(
-        literacy.iloc[header_row + 1:, urban_col],
-        errors="coerce"
-    )
-
-    state_average = (rural_values + urban_values) / 2
-
-    average_literacy = state_average.mean()
-
-    with open(OUTPUT / "q1_average_literacy.txt", "w") as f:
-        f.write(
-            f"Average 2011 literacy rate: "
-            f"{average_literacy:.2f}%\n"
-        )
-
-    print(f"Q1 Average 2011 literacy rate: {average_literacy:.2f}%")
-
-# ---------------------------------------------------------
-# Q2: Gender-wise filtering
-# ---------------------------------------------------------
-# Keep rows containing gender information from the enrollment data.
-
-gender_rows = enrollment[
-    enrollment.apply(
-        lambda row: row.astype(str).str.contains(
-            "boys|girls|male|female",
-            case=False,
-            regex=True
-        ).any(),
-        axis=1
-    )
+# Q2: retain actual enrollment columns that mention gender
+gender_cols = [
+    col for col in enr.columns
+    if re.search(r"\b(boys|girls|male|female)\b", str(col), re.I)
 ]
-
-gender_rows.to_csv(
-    OUTPUT / "q2_gender_filtered.csv",
-    index=False
-)
-
-print("Q2 gender-filtered data saved.")
-
-# ---------------------------------------------------------
-# Q3: Missing enrollment values
-# ---------------------------------------------------------
-numeric_enrollment = enrollment.apply(
-    pd.to_numeric,
-    errors="coerce"
-)
-
-missing_before = int(numeric_enrollment.isna().sum().sum())
-
-# Median imputation is used only if numeric missing values exist.
-filled_enrollment = numeric_enrollment.copy()
-
-for column in filled_enrollment.columns:
-    median_value = filled_enrollment[column].median()
-
-    if pd.notna(median_value):
-        filled_enrollment[column] = filled_enrollment[column].fillna(
-            median_value
-        )
-
-missing_after = int(filled_enrollment.isna().sum().sum())
-
-missing_summary = pd.DataFrame({
-    "missing_values_before": [missing_before],
-    "missing_values_after": [missing_after]
-})
-
-missing_summary.to_csv(
-    OUTPUT / "q3_missing_enrollment.csv",
-    index=False
-)
-
-print("Q3 missing values before:", missing_before)
-print("Q3 missing values after:", missing_after)
-
-# ---------------------------------------------------------
-# Q4: Age-group and region grouping
-# ---------------------------------------------------------
-# Search the enrollment header row.
-header_index = 0
-
-for i in range(min(5, len(enrollment))):
-    row_text = " ".join(
-        enrollment.iloc[i].astype(str).str.lower().tolist()
+if gender_cols:
+    enr[[enr.columns[0]] + gender_cols].to_csv(
+        OUTPUT / "q2_gender_filtered.csv", index=False
     )
+else:
+    raise ValueError("No gender-related enrollment columns were found.")
 
-    if "state" in row_text or "ut" in row_text:
-        header_index = i
-        break
+# Q3: count missing values in enrollment numeric data only.
+# Do not impute values automatically; missing values need source review.
+numeric = enr.iloc[:, 1:].apply(pd.to_numeric, errors="coerce")
+original_nonblank = enr.iloc[:, 1:].apply(
+    lambda col: col.astype(str).str.strip().ne("")
+    & col.astype(str).str.lower().ne("nan")
+)
+missing_count = int(
+    (numeric.isna() & original_nonblank).sum().sum()
+    + enr.iloc[:, 1:].isna().sum().sum()
+)
 
-enrollment_clean = enrollment.iloc[header_index + 1:].copy()
-enrollment_clean.columns = enrollment.iloc[header_index].astype(str)
+pd.DataFrame([{
+    "numeric_cells_checked": int(numeric.size),
+    "missing_or_non_numeric_values": missing_count,
+    "action": "No automatic imputation; inspect source data before handling missing values."
+}]).to_csv(OUTPUT / "q3_missing_enrollment.csv", index=False)
 
-# Possible age-group keywords
+# Q4: identify one All - Total column per age group
 age_groups = ["<6", "6-10", "11-13", "14-15", "16-17", ">17"]
-
-# Find columns containing age-group labels.
 age_columns = {}
 
 for age in age_groups:
-    matching = [
-        col for col in enrollment_clean.columns
-        if age.lower() in str(col).lower()
+    matches = [
+        col for col in enr.columns
+        if age in str(col) and "All - Total" in str(col)
     ]
+    if matches:
+        age_columns[age] = matches[0]
 
-    if matching:
-        age_columns[age] = matching
-
-# State/UT column
-state_column = None
-
-for col in enrollment_clean.columns:
-    col_text = str(col).lower()
-
-    if "state" in col_text or "ut" in col_text:
-        state_column = col
-        break
-
-if state_column is None:
-    state_column = enrollment_clean.columns[0]
-
-# Simple region classification
 def get_region(state):
-    state = str(state).lower()
+    s = str(state).lower()
+    mapping = {
+        "North": ["jammu", "kashmir", "himachal", "punjab", "haryana",
+                  "delhi", "uttarakhand", "uttar pradesh", "rajasthan"],
+        "South": ["andhra", "telangana", "karnataka", "kerala",
+                  "tamil", "puducherry", "lakshadweep"],
+        "East": ["bihar", "jharkhand", "odisha", "orissa", "west bengal"],
+        "West": ["gujarat", "maharashtra", "goa", "dadra", "daman"],
+        "Northeast": ["assam", "arunachal", "manipur", "meghalaya",
+                      "mizoram", "nagaland", "sikkim", "tripura"]
+    }
+    for region, words in mapping.items():
+        if any(word in s for word in words):
+            return region
+    return "Other"
 
-    north = [
-        "jammu", "kashmir", "himachal", "punjab", "haryana",
-        "delhi", "uttarakhand", "uttar pradesh", "rajasthan"
-    ]
+state_enr_col = enr.columns[0]
+q4_rows = []
 
-    south = [
-        "andhra", "telangana", "karnataka", "kerala",
-        "tamil", "puducherry"
-    ]
+for _, row in enr.iterrows():
+    state = str(row[state_enr_col]).strip()
+    if state.lower() in {"india", "nan", ""}:
+        continue
+    for age, col in age_columns.items():
+        q4_rows.append({
+            "State_UT": state,
+            "Region": get_region(state),
+            "Age_Group": age,
+            "Enrollment": pd.to_numeric(row[col], errors="coerce")
+        })
 
-    east = [
-        "bihar", "jharkhand", "odisha", "west bengal"
-    ]
-
-    west = [
-        "gujarat", "maharashtra", "goa"
-    ]
-
-    northeast = [
-        "assam", "arunachal", "manipur", "meghalaya",
-        "mizoram", "nagaland", "sikkim", "tripura"
-    ]
-
-    if any(x in state for x in north):
-        return "North"
-    elif any(x in state for x in south):
-        return "South"
-    elif any(x in state for x in east):
-        return "East"
-    elif any(x in state for x in west):
-        return "West"
-    elif any(x in state for x in northeast):
-        return "Northeast"
-    else:
-        return "Other"
-
-if age_columns:
-    q4_rows = []
-
-    for age, columns in age_columns.items():
-        for column in columns:
-            values = pd.to_numeric(
-                enrollment_clean[column],
-                errors="coerce"
-            )
-
-            temp = pd.DataFrame({
-                "State_UT": enrollment_clean[state_column].astype(str),
-                "Age_Group": age,
-                "Enrollment": values
-            })
-
-            temp["Region"] = temp["State_UT"].apply(get_region)
-
-            q4_rows.append(temp)
-
-    q4_data = pd.concat(q4_rows, ignore_index=True)
-
-    q4_summary = (
-        q4_data
-        .groupby(["Region", "Age_Group"], as_index=False)["Enrollment"]
-        .sum()
-    )
-
+q4_detail = pd.DataFrame(q4_rows)
+if not q4_detail.empty:
+    q4_summary = q4_detail.groupby(
+        ["Region", "Age_Group"], as_index=False
+    )["Enrollment"].sum(min_count=1)
 else:
     q4_summary = pd.DataFrame(
         columns=["Region", "Age_Group", "Enrollment"]
     )
 
-q4_summary.to_csv(
-    OUTPUT / "q4_age_region_enrollment.csv",
-    index=False
-)
+q4_summary.to_csv(OUTPUT / "q4_age_region_enrollment.csv", index=False)
 
-print("Q4 age-group and region data saved.")
+# Q5: compare male and female literacy using rural and urban 2011 rates
+male_rural = find_column(lit.columns, "2011", "rural", "male")
+female_rural = find_column(lit.columns, "2011", "rural", "female")
+male_urban = find_column(lit.columns, "2011", "urban", "male")
+female_urban = find_column(lit.columns, "2011", "urban", "female")
 
-# ---------------------------------------------------------
-# Q5: Gender-wise literacy comparison
-# ---------------------------------------------------------
-# Search for Male/Female/Person columns in the literacy table.
+for col in [male_rural, female_rural, male_urban, female_urban]:
+    lit[col] = pd.to_numeric(lit[col], errors="coerce")
 
-male_col = None
-female_col = None
+male_average = pd.concat(
+    [lit[male_rural], lit[male_urban]], axis=1
+).mean(axis=1).mean()
+female_average = pd.concat(
+    [lit[female_rural], lit[female_urban]], axis=1
+).mean(axis=1).mean()
 
-for i, value in enumerate(headers):
-    value_lower = value.lower()
+comparison = pd.DataFrame({
+    "Gender": ["Male", "Female"],
+    "Average_Literacy_Rate": [male_average, female_average]
+})
+comparison.to_csv(OUTPUT / "q5_gender_literacy_summary.csv", index=False)
 
-    if "2011" in value_lower and "male" in value_lower:
-        male_col = i
+plt.figure(figsize=(7, 5))
+plt.bar(comparison["Gender"], comparison["Average_Literacy_Rate"])
+plt.title("Gender-wise Literacy Comparison (2011)")
+plt.xlabel("Gender")
+plt.ylabel("Average literacy rate (%)")
+plt.tight_layout()
+plt.savefig(OUTPUT / "q5_gender_wise_literacy.png", dpi=300)
+plt.close()
 
-    if "2011" in value_lower and "female" in value_lower:
-        female_col = i
-
-if male_col is not None and female_col is not None:
-
-    male_values = pd.to_numeric(
-        literacy.iloc[header_row + 1:, male_col],
-        errors="coerce"
-    )
-
-    female_values = pd.to_numeric(
-        literacy.iloc[header_row + 1:, female_col],
-        errors="coerce"
-    )
-
-    comparison = pd.DataFrame({
-        "Gender": ["Male", "Female"],
-        "Average_Literacy": [
-            male_values.mean(),
-            female_values.mean()
-        ]
-    })
-
-    plt.figure(figsize=(7, 5))
-
-    plt.bar(
-        comparison["Gender"],
-        comparison["Average_Literacy"]
-    )
-
-    plt.title("Gender-wise Literacy Comparison - 2011")
-    plt.xlabel("Gender")
-    plt.ylabel("Average Literacy Rate (%)")
-
-    plt.tight_layout()
-
-    plt.savefig(
-        OUTPUT / "q5_gender_wise_literacy.png",
-        dpi=300
-    )
-
-    plt.close()
-
-    print("Q5 gender-wise graph saved.")
-
-else:
-    print("Could not identify Male/Female literacy columns.")
-
-# ---------------------------------------------------------
 # Summary
-# ---------------------------------------------------------
-summary = pd.DataFrame({
+pd.DataFrame({
     "Question": ["Q1", "Q2", "Q3", "Q4", "Q5"],
-    "Task": [
-        "Average 2011 literacy rate",
-        "Gender-wise filtering",
-        "Missing enrollment values",
-        "Age-group and region grouping",
-        "Gender-wise literacy comparison"
-    ],
     "Output": [
         "q1_average_literacy.txt",
         "q2_gender_filtered.csv",
@@ -351,12 +189,6 @@ summary = pd.DataFrame({
         "q4_age_region_enrollment.csv",
         "q5_gender_wise_literacy.png"
     ]
-})
+}).to_csv(OUTPUT / "analysis_summary.csv", index=False)
 
-summary.to_csv(
-    OUTPUT / "analysis_summary.csv",
-    index=False
-)
-
-print("\nAnalysis completed.")
-print("Check the output folder for results.")
+print("Analysis completed. Check the output folder.")
