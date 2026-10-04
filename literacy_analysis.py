@@ -1,305 +1,176 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
-import os
+import seaborn as sns
 
-# ============================================================
-# EDAV PROJECT
-# Analysis of Literacy Rates and Educational Enrollments
-# by State and Gender
-# ============================================================
-
-# Create output folder
-os.makedirs("output", exist_ok=True)
-
-# ------------------------------------------------------------
-# 1. LOAD DATA
-# ------------------------------------------------------------
-
-literacy_file = "Table29.6-States(1).xls"
-enrollment_file = "UDISE_2021_22_Table_5.17_2 (1).csv"
-
-literacy = pd.read_excel(literacy_file)
-enrollment = pd.read_csv(enrollment_file)
-
-print("\n================ DATASET INFORMATION ================\n")
-
-print("Literacy dataset shape:", literacy.shape)
-print("Enrollment dataset shape:", enrollment.shape)
-
-print("\nLiteracy columns:")
-print(literacy.columns.tolist())
-
-print("\nEnrollment columns:")
-print(enrollment.columns.tolist())
+# Reading the datasets
+literacy = pd.read_excel("data/Table29.6-States-1.xls")
+enrollment = pd.read_csv("data/UDISE_2021_22_Table_5.17_2.csv")
 
 
-# ------------------------------------------------------------
-# Q1: CALCULATE AVERAGE LITERACY RATE
-# ------------------------------------------------------------
+# Displaying the datasets
+print("Literacy Data")
+print(literacy.head())
 
-print("\n================ Q1: AVERAGE LITERACY RATE ================\n")
-
-# 2011 rural and urban literacy rates
-rural_person = "2011 - Rural - Person"
-urban_person = "2011 - Urban - Persons"
-
-if rural_person in literacy.columns and urban_person in literacy.columns:
-
-    literacy["2011_Average_Literacy"] = (
-        literacy[rural_person] + literacy[urban_person]
-    ) / 2
-
-    average_literacy = literacy["2011_Average_Literacy"].mean()
-
-    print("Average 2011 literacy rate:",
-          round(average_literacy, 2), "%")
-
-    print("\nState-wise average literacy:")
-    print(
-        literacy[
-            ["All India/State/Union Territory",
-             "2011_Average_Literacy"]
-        ].to_string(index=False)
-    )
-
-else:
-    print("Required literacy columns were not found.")
+print("\nEnrollment Data")
+print(enrollment.head())
 
 
-# ------------------------------------------------------------
-# Q2: FILTER DATA BY GENDER
-# ------------------------------------------------------------
+# Q1. Calculate average literacy rate
 
-print("\n================ Q2: GENDER-WISE ANALYSIS ================\n")
+# Rural and Urban Person columns are used because
+# they give the overall literacy rate without separating male and female.
+literacy["Average"] = literacy[
+    ["2011 - Rural - Person", "2011 - Urban - Person"]
+].mean(axis=1)
 
-male_columns = [
-    col for col in literacy.columns
-    if "2011" in str(col) and "Male" in str(col)
+avg_literacy = literacy["Average"].mean()
+
+print("\nQ1: Average Literacy Rate =", round(avg_literacy, 2), "%")
+
+
+# Q2. Gender-wise literacy rate
+
+# Male Rural and Male Urban are selected to calculate
+# the average literacy rate of males.
+male = literacy[
+    ["All India/State/Union Territory",
+     "2011 - Rural - Male",
+     "2011 - Urban - Male"]
 ]
 
-female_columns = [
-    col for col in literacy.columns
-    if "2011" in str(col) and "Female" in str(col)
+# Female Rural and Female Urban are selected to calculate
+# the average literacy rate of females.
+female = literacy[
+    ["All India/State/Union Territory",
+     "2011 - Rural - Female",
+     "2011 - Urban - Female"]
 ]
 
-print("Male literacy columns:", male_columns)
-print("Female literacy columns:", female_columns)
 
-if male_columns and female_columns:
+male_avg = male[
+    ["2011 - Rural - Male", "2011 - Urban - Male"]
+].mean().mean()
 
-    literacy["Male_Average"] = literacy[male_columns].mean(axis=1)
-    literacy["Female_Average"] = literacy[female_columns].mean(axis=1)
+female_avg = female[
+    ["2011 - Rural - Female", "2011 - Urban - Female"]
+].mean().mean()
 
-    print("\nAverage Male Literacy:",
-          round(literacy["Male_Average"].mean(), 2), "%")
+print("\nQ2: Gender-wise Literacy Rate")
+print("Male =", round(male_avg, 2), "%")
+print("Female =", round(female_avg, 2), "%")
 
-    print("Average Female Literacy:",
-          round(literacy["Female_Average"].mean(), 2), "%")
 
+# Q3. Missing values and median
+
+print("\nQ3: Missing Enrollment Values and Median")
+
+# isnull() is used to find empty or missing values
+# in the enrollment dataset.
+missing = enrollment.isnull().sum().sum()
+
+print("Number of missing values =", missing)
+
+if missing > 0:
+    print("Missing values are present in the dataset.")
 else:
-    print("Gender columns could not be identified.")
+    print("There are no missing values.")
 
 
-# ------------------------------------------------------------
-# Q3: HANDLE MISSING ENROLLMENT VALUES
-# ------------------------------------------------------------
+# Numerical columns are selected because median
+# can be calculated only on numerical enrollment data.
+numeric_data = enrollment.select_dtypes(include=np.number)
 
-print("\n================ Q3: MISSING ENROLLMENT VALUES ================\n")
+median_enrollment = numeric_data.median().median()
 
-missing_before = enrollment.isnull().sum()
-
-print("Missing values before handling:")
-print(missing_before)
-
-total_missing = enrollment.isnull().sum().sum()
-
-print("\nTotal missing enrollment values:",
-      total_missing)
-
-# Handle numeric missing values using column median
-numeric_columns = enrollment.select_dtypes(
-    include="number"
-).columns
-
-for column in numeric_columns:
-    enrollment[column] = enrollment[column].fillna(
-        enrollment[column].median()
-    )
-
-print("\nMissing values after handling:")
-print(enrollment[numeric_columns].isnull().sum())
-
-print("\nMissing enrollment values have been handled using median imputation for numeric columns.")
+print("Median Enrollment =", round(median_enrollment, 2))
 
 
-# ------------------------------------------------------------
-# Q4: GROUP LITERACY / ENROLLMENT STATISTICS BY AGE
-#     AND REGION
-# ------------------------------------------------------------
+# Q4. Age-wise enrollment
 
-print("\n================ Q4: AGE AND REGION ANALYSIS ================\n")
+print("\nQ4: Age-wise Enrollment")
 
-# Display columns so that age-related variables can be identified
-print("Age-related enrollment columns:")
+# These attributes are selected because they represent
+# different age groups of students and help us compare
+# enrollment across age categories.
+age_columns = [
+    "Enrolment of Age Group < 6 years - All - Total",
+    "Enrolment of Age Group 6-10 years - All - Total",
+    "Enrolment of Age Group 11-13 Years - All - Total",
+    "Enrolment of Age Group 14-15 Years - All - Total",
+    "Enrolment of Age Group 16-17 years - All - Total",
+    "Enrolment of Age Group >17 years - All - Total"
+]
 
-age_columns = []
+for column in age_columns:
 
-for column in enrollment.columns:
-    text = str(column).lower()
+    # Convert values into numbers and ignore invalid values.
+    total = pd.to_numeric(
+        enrollment[column],
+        errors="coerce"
+    ).sum()
 
-    if (
-        "<6" in text
-        or "6-10" in text
-        or "6 – 10" in text
-        or "11-13" in text
-        or "11 – 13" in text
-        or "14-15" in text
-        or "14 – 15" in text
-        or "16-17" in text
-        or "16 – 17" in text
-        or ">17" in text
-    ):
-        age_columns.append(column)
-
-print(age_columns)
-
-# Try to identify state column
-state_column = None
-
-for column in enrollment.columns:
-    text = str(column).lower()
-
-    if (
-        "state" in text
-        or "union territory" in text
-        or "state/ut" in text
-    ):
-        state_column = column
-        break
-
-print("\nState column:", state_column)
-
-# Region mapping for Indian states and UTs
-region_map = {
-    "Andhra Pradesh": "South",
-    "Telangana": "South",
-    "Karnataka": "South",
-    "Kerala": "South",
-    "Tamil Nadu": "South",
-    "Goa": "West",
-    "Maharashtra": "West",
-    "Gujarat": "West",
-    "Rajasthan": "West",
-    "Madhya Pradesh": "Central",
-    "Chhattisgarh": "Central",
-    "Uttar Pradesh": "North",
-    "Uttarakhand": "North",
-    "Himachal Pradesh": "North",
-    "Punjab": "North",
-    "Haryana": "North",
-    "Delhi": "North",
-    "Jammu and Kashmir": "North",
-    "Ladakh": "North",
-    "Bihar": "East",
-    "Jharkhand": "East",
-    "Odisha": "East",
-    "West Bengal": "East",
-    "Assam": "Northeast",
-    "Arunachal Pradesh": "Northeast",
-    "Manipur": "Northeast",
-    "Meghalaya": "Northeast",
-    "Mizoram": "Northeast",
-    "Nagaland": "Northeast",
-    "Tripura": "Northeast",
-    "Sikkim": "Northeast"
-}
-
-if state_column is not None:
-
-    enrollment["Region"] = enrollment[state_column].astype(str).map(
-        region_map
-    )
-
-    print("\nEnrollment grouped by region:")
-
-    numeric_columns = enrollment.select_dtypes(
-        include="number"
-    ).columns
-
-    region_summary = enrollment.groupby("Region")[
-        list(numeric_columns)
-    ].mean()
-
-    print(region_summary)
-
-    region_summary.to_csv(
-        "output/region_enrollment_summary.csv"
-    )
-
-else:
-    print(
-        "State column was not automatically identified."
-    )
+    print(column, "=", total)
 
 
-# ------------------------------------------------------------
-# Q5: PLOT GENDER-WISE LITERACY COMPARISON
-# ------------------------------------------------------------
+# Q5. Gender-wise literacy graph
 
-print("\n================ Q5: GENDER-WISE LITERACY GRAPH ================\n")
+# Male and Female are used as categories
+# and their average literacy rates are used as values.
+gender = ["Male", "Female"]
+values = [male_avg, female_avg]
 
-if "Male_Average" in literacy.columns and "Female_Average" in literacy.columns:
+plt.figure(figsize=(7, 5))
 
-    gender_data = pd.DataFrame({
-        "Gender": ["Male", "Female"],
-        "Average Literacy Rate": [
-            literacy["Male_Average"].mean(),
-            literacy["Female_Average"].mean()
-        ]
-    })
+plt.bar(gender, values)
 
-    print(gender_data)
+plt.title("Gender-wise Literacy Comparison")
+plt.xlabel("Gender")
+plt.ylabel("Average Literacy Rate (%)")
 
-    plt.figure(figsize=(8, 6))
+# Literacy rate cannot normally exceed 100%.
+plt.ylim(0, 100)
 
-    plt.bar(
-        gender_data["Gender"],
-        gender_data["Average Literacy Rate"]
-    )
+plt.savefig("gender_literacy_comparison.png")
 
-    plt.title("Gender-wise Literacy Comparison - 2011")
-    plt.xlabel("Gender")
-    plt.ylabel("Average Literacy Rate (%)")
-
-    plt.tight_layout()
-
-    plt.savefig(
-        "output/gender_literacy_comparison.png",
-        dpi=300
-    )
-
-    plt.close()
-
-    print(
-        "\nGraph saved as: "
-        "output/gender_literacy_comparison.png"
-    )
+plt.show()
 
 
-# ------------------------------------------------------------
-# SAVE LITERACY ANALYSIS
-# ------------------------------------------------------------
+# Seaborn graph
 
-literacy.to_csv(
-    "output/literacy_analysis_results.csv",
-    index=False
+# Seaborn is used to create a simple statistical bar graph.
+plt.figure(figsize=(7, 5))
+
+sns.barplot(x=gender, y=values)
+
+plt.title("Male vs Female Literacy Rate")
+plt.xlabel("Gender")
+plt.ylabel("Average Literacy Rate (%)")
+
+plt.ylim(0, 100)
+
+plt.savefig("gender_literacy_seaborn.png")
+
+plt.show()
+
+
+# NumPy analysis
+
+# NumPy array is used for numerical calculations.
+literacy_values = np.array(values)
+
+print("\nNumPy Analysis")
+
+print(
+    "Highest Gender Literacy Rate =",
+    round(np.max(literacy_values), 2),
+    "%"
 )
 
-print("\n============================================================")
-print("ANALYSIS COMPLETED SUCCESSFULLY")
-print("============================================================")
+print(
+    "Lowest Gender Literacy Rate =",
+    round(np.min(literacy_values), 2),
+    "%"
+)
 
-print("\nGenerated output files:")
-print("- output/literacy_analysis_results.csv")
-print("- output/region_enrollment_summary.csv")
-print("- output/gender_literacy_comparison.png")
+print("\nAnalysis completed successfully.")
