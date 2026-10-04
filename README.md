@@ -1,98 +1,66 @@
-# Literacy Rate and Educational Enrollment Analysis
+# Literacy Rates and Educational Enrollment Analysis
 
-## About the Project
+## Project Overview
 
-This project is about analyzing literacy rates and educational enrollment in different states of India. We mainly focused on comparing the data between males and females.
+This project analyzes literacy rates and educational enrollment across Indian states and union territories, focusing on gender, missing values, age groups, and regions.
 
-For the project, we used literacy data from the Census for the years 1991, 2001 and 2011. We also used UDISE+ enrollment data to look at the number of boys and girls enrolled in schools.
+## Objectives
 
-Python was used for cleaning the data, doing the calculations and creating graphs.
+1. Calculate the average literacy rate using 2011 data.
+2. Filter enrollment data by gender.
+3. Identify missing enrollment values.
+4. Summarize enrollment by age group and region.
+5. Compare male and female literacy rates using a bar chart.
 
-## What We Did
+## Datasets
 
-In this project, we worked on the following questions:
-
-* Calculated the average literacy rate.
-* Filtered the data based on gender.
-* Checked and handled missing enrollment values.
-* Grouped literacy data based on the available categories.
-* Compared male and female literacy rates using graphs.
-* Compared literacy and enrollment patterns between different states.
-
-## Datasets Used
-
-### Literacy Dataset
-
-**Dataset:** Literacy Rate in India up to 2011
-
-**Source:** Government of India – Data.gov.in
-
-The dataset contains information for the years:
-
-* 1991
-* 2001
-* 2011
-
-It includes State/UT, gender and rural/urban information.
-
-### Enrollment Dataset
-
-**Dataset:** State/UT-wise number of enrolment of students by gender and level of school education
-
-**Source:** UDISE+ / Ministry of Education
-
-The dataset contains enrollment information for boys and girls across different States/UTs and school education levels.
+* `Table29.6-States(1).xls`
+* `UDISE_2021_22_Table_5.17_2 (1).csv`
 
 ## Tools Used
 
 * Python
 * Pandas
-* NumPy
 * Matplotlib
-* Seaborn
-* Jupyter Notebook / Google Colab
+* Google Colab
 
-## Steps Followed
+## Project Structure
 
-1. Collected the datasets.
-2. Loaded the data using Python.
-3. Checked the data for missing and incorrect values.
-4. Cleaned the data.
-5. Filtered the data based on gender and other categories.
-6. Calculated the required statistics.
-7. Grouped the data for comparison.
-8. Created graphs and charts.
-9. Observed the differences in literacy and enrollment.
+```text
+literacy_education_analysis/
+├── literacy_analysis.py
+├── requirement.txt
+├── Table29.6-States(1).xls
+├── UDISE_2021_22_Table_5.17_2 (1).csv
+└── output/
+    ├── analysis_summary.csv
+    ├── q1_average_literacy.txt
+    ├── q2_gender_filtered.csv
+    ├── q3_missing_enrollment.csv
+    ├── q4_age_region_enrollment.csv
+    ├── q5_gender_literacy_summary.csv
+    └── q5_gender_wise_literacy.png
+```
 
-## Main Analysis
+## Questions Addressed
 
-We compared the literacy rates of males and females and looked at how literacy changed from 1991 to 2011.
+* What is the average literacy rate?
+* How can enrollment data be filtered by gender?
+* Are any enrollment values missing?
+* How does enrollment vary by age group and region?
+* How do male and female literacy rates compare?
 
-We also studied school enrollment data to understand the difference between the number of boys and girls enrolled in different levels of education.
+## Data Source
 
-The graphs make it easier to compare the states and identify differences between genders.
+[Open Government Data Platform India – Literacy Statistics](https://data.gov.in/resources/literacy-statistics-india)
 
-## Team Members
+## Outputs
 
-* **C. Sandhya Yadav** – 160125737010
-* **S. Hashini** – 160125737055
+The `output` folder contains the generated result files and gender-wise literacy comparison chart.
 
-## Course
-
-**Exploratory Data Analysis and Visualization (EDAV) – 22AC31N**
-
-**Department:** Information Technology
-**Class:** B.E. IT-01, III Semester
-**Academic Year:** 2026–27
-**Institution:** CBIT
-
-## Data Sources
-
-* Government of India – Open Government Data Platform
-* Census / Registrar General literacy data
-* Ministry of Education – UDISE+
+**Note:** The generated numerical results should be checked against the source datasets before final submission.
 
 ## Conclusion
 
-This project helped us understand how literacy and school enrollment differ across Indian states and between males and females.
-By using Python and visualizations, we were able to make the data easier to understand and compare.
+This project uses Python data analysis and visualization techniques to explore literacy and educational enrollment patterns across India.
+
